@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"net/http"
 	"strings"
 
 	"enigmacamp.com/go-jwt/authenticator"
@@ -51,7 +52,17 @@ func (a *AuthTokenMiddleware) RequireToken() gin.HandlerFunc {
 				return
 			}
 
+			userName, err := a.acctToken.FetchccessToken(token)
+			if userName == "" || err != nil {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"message": "Unauthorized",
+				})
+				c.Abort()
+				return
+			}
+
 			if token != nil {
+				c.Set("username", userName)
 				c.Next()
 			} else {
 				c.AbortWithStatusJSON(401, gin.H{"message": "Unauthorized"})

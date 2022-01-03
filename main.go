@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 
 	"time"
 
@@ -9,16 +10,23 @@ import (
 	"enigmacamp.com/go-jwt/delivery/middleware"
 	"enigmacamp.com/go-jwt/model"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	"github.com/golang-jwt/jwt"
 )
 
 func main() {
 	r := gin.Default()
+	client := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+		DB:   0,
+	})
+
 	takenConfig := authenticator.TokenConfig{
 		ApplicationName:     "ENIGMA",
 		JwtSigningMethod:    jwt.SigningMethodHS256,
 		JwtSignatureKey:     "P@ssw0rd",
-		AccessTokenLifeTime: 30 * time.Second,
+		AccessTokenLifeTime: 600 * time.Second,
+		Client:              client,
 	}
 	tokenService := authenticator.NewTokenService(takenConfig)
 	r.Use(middleware.NewTokenValidator(tokenService).RequireToken())
@@ -40,7 +48,14 @@ func main() {
 				c.AbortWithStatus(500)
 				return
 			}
-			c.JSON(200, gin.H{
+
+			err = tokenService.StoreAccessToken(user.Username, token)
+			if err != nil {
+				c.AbortWithStatus(401)
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{
 				"token": token,
 			})
 		} else {
@@ -49,8 +64,8 @@ func main() {
 	})
 
 	publicRoute.GET("/user", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "user",
+		c.JSON(http.StatusOK, gin.H{
+			"message": c.GetString("username"),
 		})
 	})
 
