@@ -4,19 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"enigmacamp.com/go-jwt/model"
 	"github.com/go-redis/redis/v8"
 	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
+
+	"time"
 )
 
 type Token interface {
 	CreateAccessToken(cred *model.Credential) (*TokenDetails, error)
 	VerifyAccessToken(tokenString string) (*AccessDetails, error)
-	StoreAccessToken(userName string, TokenDetails *TokenDetails) error
-	FetchccessToken(AccessDetails *AccessDetails) (string, error)
+	StoreAccessToken(userName string, tokenDetails *TokenDetails) error
+	FetchAccessToken(accessDetails *AccessDetails) (string, error)
 }
 
 type token struct {
@@ -25,8 +26,8 @@ type token struct {
 
 type TokenConfig struct {
 	ApplicationName     string
-	JwtSignatureKey     string
 	JwtSigningMethod    *jwt.SigningMethodHMAC
+	JwtSignatureKey     string
 	AccessTokenLifeTime time.Duration
 	Client              *redis.Client
 }
@@ -59,6 +60,7 @@ func (t *token) CreateAccessToken(cred *model.Credential) (*TokenDetails, error)
 	claims := MyClaims{
 		StandardClaims: jwt.StandardClaims{
 			Issuer: t.Config.ApplicationName,
+			//            IssuedAt: time.Now().Unix(),
 		},
 		Username:   cred.Username,
 		Email:      cred.Email,
@@ -92,34 +94,33 @@ func (t *token) VerifyAccessToken(tokenString string) (*AccessDetails, error) {
 	if !ok || !token.Valid {
 		return nil, err
 	}
-	return nil, err
 
 	accessUUID := claims["AccessUUID"].(string)
-	username := claims["Username"].(string)
+	userName := claims["Username"].(string)
 	return &AccessDetails{
 		AccessUuid: accessUUID,
-		UserName:   username,
+		UserName:   userName,
 	}, nil
 }
 
-func (t *token) StoreAccessToken(userName string, TokenDetails *TokenDetails) error {
-	at := time.Unix(TokenDetails.AtExpires, 0)
+func (t *token) StoreAccessToken(userName string, tokenDetails *TokenDetails) error {
+	at := time.Unix(tokenDetails.AtExpires, 0)
 	now := time.Now()
-	err := t.Config.Client.Set(context.Background(), TokenDetails.AccessUuid, userName, at.Sub(now)).Err()
+	err := t.Config.Client.Set(context.Background(), tokenDetails.AccessUuid, userName, at.Sub(now)).Err()
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (t *token) FetchccessToken(AccessDetails *AccessDetails) (string, error) {
-	if AccessDetails != nil {
-		userName, err := t.Config.Client.Get(context.Background(), AccessDetails.AccessUuid).Result()
+func (t *token) FetchAccessToken(accessDetails *AccessDetails) (string, error) {
+	if accessDetails != nil {
+		userName, err := t.Config.Client.Get(context.Background(), accessDetails.AccessUuid).Result()
 		if err != nil {
-			return "", nil
+			return "", err
 		}
 		return userName, nil
 	} else {
-		return "", errors.New("invalid access")
+		return "", errors.New("invalid Access")
 	}
 }

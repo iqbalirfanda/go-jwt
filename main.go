@@ -25,7 +25,7 @@ func main() {
 		ApplicationName:     "ENIGMA",
 		JwtSigningMethod:    jwt.SigningMethodHS256,
 		JwtSignatureKey:     "P@ssw0rd",
-		AccessTokenLifeTime: 600 * time.Second,
+		AccessTokenLifeTime: 120 * time.Second,
 		Client:              client,
 	}
 	tokenService := authenticator.NewTokenService(takenConfig)
@@ -51,7 +51,9 @@ func main() {
 
 			err = tokenService.StoreAccessToken(user.Username, token)
 			if err != nil {
+				fmt.Println(err)
 				c.AbortWithStatus(401)
+
 				return
 			}
 

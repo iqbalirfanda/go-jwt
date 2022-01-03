@@ -52,7 +52,7 @@ func (a *AuthTokenMiddleware) RequireToken() gin.HandlerFunc {
 				return
 			}
 
-			userName, err := a.acctToken.FetchccessToken(token)
+			userName, err := a.acctToken.FetchAccessToken(token)
 			if userName == "" || err != nil {
 				c.JSON(http.StatusUnauthorized, gin.H{
 					"message": "Unauthorized",
