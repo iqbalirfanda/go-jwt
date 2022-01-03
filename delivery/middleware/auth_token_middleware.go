@@ -61,8 +61,32 @@ func (a *AuthTokenMiddleware) RequireToken() gin.HandlerFunc {
 				return
 			}
 
+			if c.Request.URL.Path == "/enigma/logout" {
+				err := a.acctToken.DeleteAccessToken(token)
+				if err != nil {
+					c.AbortWithStatusJSON(401, gin.H{
+						"message": "Unauthorized",
+					})
+				} else {
+
+					c.Next()
+				}
+			}
+
+			if c.Request.URL.Path == "/enigma/exit" {
+				_, err := a.acctToken.UpdateAccessToken(token)
+				if err != nil {
+					c.AbortWithStatusJSON(401, gin.H{
+						"message": "Unauthorized",
+					})
+				} else {
+					c.Next()
+				}
+			}
+
 			if token != nil {
 				c.Set("username", userName)
+				c.Set("uuid", token)
 				c.Next()
 			} else {
 				c.AbortWithStatusJSON(401, gin.H{"message": "Unauthorized"})

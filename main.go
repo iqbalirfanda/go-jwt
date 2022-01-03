@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	"time"
@@ -68,6 +69,20 @@ func main() {
 	publicRoute.GET("/user", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"message": c.GetString("username"),
+		})
+	})
+
+	publicRoute.GET("/logout", func(c *gin.Context) {
+		log.Println("request for logout")
+		c.JSON(200, gin.H{
+			"message": "berhasil logout",
+		})
+	})
+
+	publicRoute.GET("/exit", func(c *gin.Context) {
+		log.Println("request for exit")
+		c.JSON(200, gin.H{
+			"message": "berhasil exit",
 		})
 	})
 

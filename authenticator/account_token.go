@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 
 	"enigmacamp.com/go-jwt/model"
 	"github.com/go-redis/redis/v8"
@@ -18,6 +19,8 @@ type Token interface {
 	VerifyAccessToken(tokenString string) (*AccessDetails, error)
 	StoreAccessToken(userName string, tokenDetails *TokenDetails) error
 	FetchAccessToken(accessDetails *AccessDetails) (string, error)
+	DeleteAccessToken(ad *AccessDetails) error
+	UpdateAccessToken(ad *AccessDetails) (bool, error)
 }
 
 type token struct {
@@ -77,6 +80,36 @@ func (t *token) CreateAccessToken(cred *model.Credential) (*TokenDetails, error)
 		return nil, err
 	}
 	return td, nil
+}
+
+func (t *token) DeleteAccessToken(ad *AccessDetails) error {
+	if ad != nil {
+		redisDel := t.Config.Client.Del(context.Background(), ad.AccessUuid)
+		res, err := redisDel.Result()
+		log.Println("delete result : ", res)
+		if err != nil {
+			return err
+		}
+		return nil
+	} else {
+		return errors.New("invalid access")
+	}
+
+}
+
+func (t *token) UpdateAccessToken(ad *AccessDetails) (bool, error) {
+	// at := time.Unix(td.AtExpires, 0)
+	// now := time.Now()
+	// time.Second
+	if ad != nil {
+		err := t.Config.Client.Set(context.Background(), ad.AccessUuid, ad.UserName, 1).Err()
+		if err != nil {
+			return false, err
+		}
+		return true, err
+	} else {
+		return false, errors.New("invalid Access")
+	}
 }
 
 func (t *token) VerifyAccessToken(tokenString string) (*AccessDetails, error) {
