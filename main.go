@@ -1,7 +1,8 @@
 package main
 
 import (
-	"time"
+	"fmt"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
@@ -28,9 +29,10 @@ type authheader struct {
 
 func main() {
 	r := gin.Default()
-	r.Use(AuthtokenMiddleware())
+	r.Use(AuthTokenMiddleware())
 
-	r.POST("login", func(c *gin.Context) {
+	publicRoute := r.Group("/enigma")
+	publicRoute.POST("/auth", func(c *gin.Context) {
 		var user Credential
 		if err := c.BindJSON(&user); err != nil {
 			c.JSON(400, gin.H{
@@ -53,7 +55,7 @@ func main() {
 		}
 	})
 
-	r.GET("/customer", func(c *gin.Context) {
+	publicRoute.GET("/customer", func(c *gin.Context) {
 		h := authheader{}
 		if err := c.ShouldBindHeader(&h); err != nil {
 			c.JSON(401, gin.H{
@@ -73,7 +75,7 @@ func main() {
 		})
 	})
 
-	r.GET("/product", func(c *gin.Context) {
+	publicRoute.GET("/product", func(c *gin.Context) {
 		h := authheader{}
 		if err := c.ShouldBindHeader(&h); err != nil {
 			c.JSON(401, gin.H{
@@ -99,7 +101,7 @@ func main() {
 	}
 }
 
-func AuthtokenMiddleware() gin.HandlerFunc {
+func AuthTokenMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.Request.URL.Path == "/login" {
 			c.Next()
@@ -112,14 +114,24 @@ func AuthtokenMiddleware() gin.HandlerFunc {
 				c.Abort()
 			}
 
-			if h.AuthorizationHeader == "123" {
-				c.Next()
-			} else {
+			tokenString := strings.Replace(h.AuthorizationHeader, "Bearer ", "", -1)
+			if tokenString == "" {
 				c.JSON(401, gin.H{
 					"message": "Unauthorized",
 				})
 				c.Abort()
+				return
 			}
+			fmt.Println("Token string", tokenString)
+
+			// if h.AuthorizationHeader == "123" {
+			// 	c.Next()
+			// } else {
+			// 	c.JSON(401, gin.H{
+			// 		"message": "Unauthorized",
+			// 	})
+			// 	c.Abort()
+			// }
 
 		}
 	}
@@ -128,13 +140,14 @@ func AuthtokenMiddleware() gin.HandlerFunc {
 func GenerateToken(userName, email string) (string, error) {
 	claims := MyClaims{
 		StandardClaims: jwt.StandardClaims{
-			Issuer:   ApplicationName,
-			IssuedAt: time.Now().Unix(),
+			Issuer: ApplicationName,
+			// IssuedAt: time.Now().Unix(),
 		},
 		Username: userName,
 		Email:    email,
 	}
 
 	token := jwt.NewWithClaims(JwtSigningMethod, claims)
+	fmt.Println("token", token)
 	return token.SignedString(JwtSignatureKey)
 }
