@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
@@ -29,7 +30,7 @@ type authheader struct {
 
 func main() {
 	r := gin.Default()
-	r.Use(AuthTokenMiddleware())
+	r.Use(AuthtokenMiddleware())
 
 	publicRoute := r.Group("/enigma")
 	publicRoute.POST("/auth", func(c *gin.Context) {
@@ -55,7 +56,13 @@ func main() {
 		}
 	})
 
-	publicRoute.GET("/customer", func(c *gin.Context) {
+	publicRoute.GET("/user", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "user",
+		})
+	})
+
+	r.GET("/customer", func(c *gin.Context) {
 		h := authheader{}
 		if err := c.ShouldBindHeader(&h); err != nil {
 			c.JSON(401, gin.H{
@@ -75,7 +82,7 @@ func main() {
 		})
 	})
 
-	publicRoute.GET("/product", func(c *gin.Context) {
+	r.GET("/product", func(c *gin.Context) {
 		h := authheader{}
 		if err := c.ShouldBindHeader(&h); err != nil {
 			c.JSON(401, gin.H{
@@ -101,9 +108,9 @@ func main() {
 	}
 }
 
-func AuthTokenMiddleware() gin.HandlerFunc {
+func AuthtokenMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if c.Request.URL.Path == "/login" {
+		if c.Request.URL.Path == "/enigma/auth" {
 			c.Next()
 		} else {
 			h := authheader{}
@@ -122,32 +129,60 @@ func AuthTokenMiddleware() gin.HandlerFunc {
 				c.Abort()
 				return
 			}
-			fmt.Println("Token string", tokenString)
+			fmt.Println("Token String", tokenString)
+			token, err := parseToken(tokenString)
+			if err != nil {
+				c.JSON(500, gin.H{
+					"message": "Internal Server Error",
+				})
+				c.Abort()
+				return
+			}
+			fmt.Println(token)
 
-			// if h.AuthorizationHeader == "123" {
-			// 	c.Next()
-			// } else {
-			// 	c.JSON(401, gin.H{
-			// 		"message": "Unauthorized",
-			// 	})
-			// 	c.Abort()
-			// }
+			if token["iss"] == ApplicationName {
+				c.Next()
+			}
+
+			//if h.AuthorizationHeader == "123" {
+			//	c.Next()
+			//} else {
+			//	c.JSON(401, gin.H{
+			//		"message": "Unauthorized",
+			//	})
+			//	c.Abort()
+			//}
 
 		}
 	}
 }
 
+func parseToken(tokentString string) (jwt.MapClaims, error) {
+	token, err := jwt.Parse(tokentString, func(token *jwt.Token) (interface{}, error) {
+		if method, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("signing method invalid")
+		} else if method != JwtSigningMethod {
+			return nil, fmt.Errorf("signing method invalid")
+		}
+		return JwtSignatureKey, nil
+	})
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		return nil, err
+	}
+	return claims, nil
+}
+
 func GenerateToken(userName, email string) (string, error) {
 	claims := MyClaims{
 		StandardClaims: jwt.StandardClaims{
-			Issuer: ApplicationName,
-			// IssuedAt: time.Now().Unix(),
+			Issuer:   ApplicationName,
+			IssuedAt: time.Now().Unix(),
 		},
 		Username: userName,
 		Email:    email,
 	}
 
 	token := jwt.NewWithClaims(JwtSigningMethod, claims)
-	fmt.Println("token", token)
 	return token.SignedString(JwtSignatureKey)
 }
